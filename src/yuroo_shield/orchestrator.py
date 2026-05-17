@@ -14,6 +14,7 @@ from .agents import (
     TokenAnalyzerAgent,
 )
 from .agents.report_generator import VerdictInputs
+from .canonical import lookup as canonical_lookup
 from .config import Settings, load_settings
 from .etherscan import EtherscanClient
 from .llm import LLMClient
@@ -35,6 +36,7 @@ class ContractReport:
     risk_level: RiskLevel
     recommendation: str
     summary: str
+    canonical_name: str | None = None
     agent_outputs: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
@@ -45,6 +47,7 @@ class ContractReport:
             "risk_level": self.risk_level.value,
             "recommendation": self.recommendation,
             "summary": self.summary,
+            "canonical_name": self.canonical_name,
             "agent_outputs": self.agent_outputs,
         }
 
@@ -101,13 +104,35 @@ class AgentOrchestrator:
             )
         )
 
+        # Canonical token dampening: blue-chip allowlist caps the verdict at LOW.
+        canonical_name = canonical_lookup(chain, address)
+        risk_score = verdict.risk_score
+        risk_level = RiskLevel(verdict.risk_level)
+        recommendation = verdict.recommendation
+        summary = verdict.summary
+        if canonical_name:
+            risk_score = min(risk_score, 5)
+            risk_level = RiskLevel.LOW if risk_score >= 5 else RiskLevel.SAFE
+            recommendation = (
+                f"Canonical {canonical_name} contract on {chain}. "
+                "Heuristic findings on widely-audited contracts are typically "
+                "false positives; verify on-chain before treating as malicious."
+            )
+            # Always replace the LLM summary for canonical tokens — its score
+            # context was the pre-dampening number, which would mislead the user.
+            summary = (
+                f"This is the canonical {canonical_name} contract on {chain}. "
+                "Risk dampened to LOW; any heuristic findings are advisory."
+            )
+
         return ContractReport(
             address=address,
             chain=chain,
-            risk_score=verdict.risk_score,
-            risk_level=RiskLevel(verdict.risk_level),
-            recommendation=verdict.recommendation,
-            summary=verdict.summary,
+            risk_score=risk_score,
+            risk_level=risk_level,
+            recommendation=recommendation,
+            summary=summary,
+            canonical_name=canonical_name,
             agent_outputs={
                 "scanner": scanner.to_dict(),
                 "rugpull": rugpull.to_dict(),

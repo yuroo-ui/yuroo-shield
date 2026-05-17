@@ -72,21 +72,47 @@ class ReportGeneratorAgent:
         summary = ""
 
         if self._llm.enabled:
+            findings_only = _flatten_findings(inputs)
             prompt = (
-                "Write a 3-sentence executive summary of this contract security report. "
-                "Be specific, no boilerplate.\n\n"
-                f"Scanner: {inputs.scanner}\n"
-                f"Rugpull: {inputs.rugpull}\n"
-                f"Token: {inputs.token}\n"
-                f"Threat: {inputs.threat}\n"
-                f"GoPlus: {inputs.goplus}\n"
-                f"Risk score: {score}/100, level: {level}."
+                "Write a 2-3 sentence executive summary of this contract security report.\n"
+                "STRICT RULES:\n"
+                "1. Use ONLY the findings listed below — do NOT invent vulnerabilities, "
+                "CVE references, or attack patterns that are not explicitly in the list.\n"
+                "2. If the findings list is empty, say the contract has no high-risk "
+                "indicators and stop.\n"
+                "3. Mention the risk level and score numerically.\n"
+                "4. Keep it factual and short. No marketing language.\n\n"
+                f"Risk score: {score}/100, level: {level}.\n"
+                f"Contract age (days): {inputs.rugpull.get('contract_age_days')}\n"
+                f"Findings ({len(findings_only)} total):\n{findings_only or '  (none)'}"
             )
             summary = await self._llm.reason(
                 prompt=prompt,
-                system="You are a Web3 security analyst writing for a non-technical user.",
+                system=(
+                    "You are a Web3 security analyst. You summarize ONLY what is "
+                    "explicitly provided. You never speculate or invent risks."
+                ),
             )
 
         return Verdict(
             risk_score=score, risk_level=level, recommendation=rec, summary=summary
         )
+
+
+def _flatten_findings(inputs: VerdictInputs) -> str:
+    """Render every finding as a single bullet list. Used to constrain the LLM."""
+    lines: list[str] = []
+    sources = [
+        ("scanner", inputs.scanner),
+        ("rugpull", inputs.rugpull),
+        ("token", inputs.token),
+        ("threat", inputs.threat),
+        ("goplus", inputs.goplus),
+    ]
+    for agent, src in sources:
+        for f in src.get("findings", []) + src.get("signals", []):
+            sev = f.get("severity", "info")
+            name = f.get("name", "")
+            detail = f.get("detail", "")
+            lines.append(f"  - [{agent}/{sev}] {name}: {detail}")
+    return "\n".join(lines)

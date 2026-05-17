@@ -1,4 +1,9 @@
-"""Rugpull Monitor Agent — recent activity heuristics."""
+"""Rugpull Monitor Agent — recent activity heuristics.
+
+Uses the contract's *real* creation timestamp from Etherscan's
+``getcontractcreation`` endpoint rather than the timestamp of the most recent N
+transactions (which collapses to "minutes old" for any active token).
+"""
 from __future__ import annotations
 
 import time
@@ -35,8 +40,31 @@ class RugpullMonitorAgent:
         self._es = etherscan
 
     async def scan(self, address: str, chain: str) -> RugpullReport:
+        # Real creation timestamp (canonical)
+        created_ts = await self._es.get_contract_creation_timestamp(address, chain)
         txs = await self._es.get_recent_txs(address, chain, offset=50)
+
         report = RugpullReport(recent_tx_count=len(txs), contract_age_days=None)
+
+        if created_ts:
+            age_days = (time.time() - created_ts) / 86400
+            report.contract_age_days = round(age_days, 2)
+            if age_days < 7:
+                report.signals.append(
+                    RugpullSignal(
+                        name="very_new_contract",
+                        severity="high",
+                        detail=f"Contract is only {age_days:.1f} days old.",
+                    )
+                )
+            elif age_days < 30:
+                report.signals.append(
+                    RugpullSignal(
+                        name="new_contract",
+                        severity="medium",
+                        detail=f"Contract is {age_days:.0f} days old.",
+                    )
+                )
 
         if not txs:
             report.signals.append(
@@ -48,39 +76,17 @@ class RugpullMonitorAgent:
             )
             return report
 
-        # Oldest tx in returned window is sorted desc, so use last
-        try:
-            oldest_ts = int(txs[-1].get("timeStamp", 0))
-            if oldest_ts:
-                age_days = (time.time() - oldest_ts) / 86400
-                report.contract_age_days = round(age_days, 2)
-                if age_days < 7:
-                    report.signals.append(
-                        RugpullSignal(
-                            name="very_new_contract",
-                            severity="high",
-                            detail=f"Contract observed for {age_days:.1f} days only.",
-                        )
-                    )
-                elif age_days < 30:
-                    report.signals.append(
-                        RugpullSignal(
-                            name="new_contract",
-                            severity="medium",
-                            detail=f"Contract is {age_days:.0f} days old.",
-                        )
-                    )
-        except (ValueError, TypeError):
-            pass
-
-        # Many failed txs = honeypot indicator
+        # Honeypot indicator: many recent reverts
         failed = sum(1 for t in txs if str(t.get("isError", "0")) == "1")
         if failed and failed / len(txs) > 0.3:
             report.signals.append(
                 RugpullSignal(
                     name="high_failure_rate",
                     severity="high",
-                    detail=f"{failed}/{len(txs)} recent transactions reverted (honeypot indicator).",
+                    detail=(
+                        f"{failed}/{len(txs)} recent transactions reverted "
+                        "(honeypot indicator)."
+                    ),
                 )
             )
 

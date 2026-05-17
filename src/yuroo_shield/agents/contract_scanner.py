@@ -4,7 +4,14 @@ Heuristic checks (no LLM required):
 - Source verification status
 - Ownership renouncement detection (well-known patterns)
 - Proxy / upgradeable contract detection
-- Suspicious function names (mint, blacklist, setTax, pause)
+- Suspicious function patterns: hidden mint without access modifier, blacklist,
+  set-tax, pause, max-tx limits, fee exclusion
+
+The "hidden_mint" detector is intentionally conservative: it flags only mint
+functions that lack any access modifier in their declaration line. Legitimate
+governance-controlled mints (e.g. Maker DAI's ``mint(address, uint) external auth``,
+where ``auth`` is a custom modifier) are not flagged. This drastically reduces
+false positives on canonical tokens.
 """
 from __future__ import annotations
 
@@ -14,14 +21,24 @@ from dataclasses import dataclass, field
 from ..etherscan import EtherscanClient
 from ..llm import LLMClient
 
-# Ownership renounce sentinels in `owner()` view return / source code
 _RENOUNCE_PATTERNS = (
     "0x000000000000000000000000000000000000dead",
     "0x0000000000000000000000000000000000000000",
 )
 
+# A "mint" function declaration that has *no* access keyword on the same line.
+# We require the close-paren of the parameter list to appear before any
+# access modifier. Catches anonymous mints; ignores ``onlyOwner``, ``auth``,
+# custom modifiers, and ``private``/``internal``.
+_MINT_DECL = re.compile(
+    r"function\s+\w*[mM]int\w*\s*\([^)]*\)\s*(?P<rest>[^;{]*)\s*[;{]",
+    re.MULTILINE,
+)
+_ACCESS_MODIFIERS = re.compile(
+    r"\b(only\w+|auth|private|internal|onlyRole|requiresAuth|hasRole)\b"
+)
+
 _SUSPICIOUS_FN_PATTERNS = {
-    "hidden_mint": re.compile(r"function\s+\w*[mM]int\w*\s*\(", re.MULTILINE),
     "blacklist": re.compile(r"function\s+\w*[bB]lacklist\w*\s*\(", re.MULTILINE),
     "set_tax": re.compile(r"function\s+set\w*[tT]ax\w*\s*\(", re.MULTILINE),
     "pause": re.compile(r"function\s+_?pause\s*\(", re.MULTILINE),
@@ -57,6 +74,18 @@ class ScannerReport:
         }
 
 
+def _detect_unprotected_mint(source: str) -> bool:
+    """Return True iff the source contains a mint function whose declaration
+    line carries no access modifier — i.e. a public/external mint anyone can
+    call. Governance-gated mints are excluded.
+    """
+    for match in _MINT_DECL.finditer(source):
+        rest = match.group("rest")
+        if not _ACCESS_MODIFIERS.search(rest):
+            return True
+    return False
+
+
 class ContractScannerAgent:
     name = "contract_scanner"
 
@@ -87,6 +116,15 @@ class ContractScannerAgent:
         source = src.get("SourceCode", "") or ""
         # Etherscan sometimes wraps multi-file source in `{{...}}`
         source_text = source.lstrip("{").rstrip("}")
+
+        if _detect_unprotected_mint(source_text):
+            report.findings.append(
+                ScannerFinding(
+                    name="unprotected_mint",
+                    severity="high",
+                    detail="A mint-style function lacks any access modifier.",
+                )
+            )
 
         for finding_name, pattern in _SUSPICIOUS_FN_PATTERNS.items():
             if pattern.search(source_text):

@@ -26,16 +26,41 @@ def test_unverified_flagged():
     assert "unverified_source" in names
 
 
-def test_hidden_mint_detected():
+def test_unprotected_mint_detected():
     src = """
     contract X {
-        function mint(address to, uint amount) public {}
+        function mint(address to, uint amount) public {
+            _balances[to] += amount;
+        }
     }
     """
     agent = _make_agent(src)
     report = asyncio.run(agent.scan("0xabc", "ethereum"))
     names = {f.name for f in report.findings}
-    assert "hidden_mint" in names
+    assert "unprotected_mint" in names
+
+
+def test_governance_mint_not_flagged():
+    """A mint guarded by a custom modifier (Maker DAI's `auth`) must NOT be flagged."""
+    src = """
+    contract Dai {
+        modifier auth { require(authorized[msg.sender]); _; }
+        function mint(address usr, uint wad) external auth {
+            balanceOf[usr] = balanceOf[usr] + wad;
+        }
+    }
+    """
+    agent = _make_agent(src)
+    report = asyncio.run(agent.scan("0xabc", "ethereum"))
+    names = {f.name for f in report.findings}
+    assert "unprotected_mint" not in names
+
+
+def test_only_owner_mint_not_flagged():
+    src = "function mint(address to, uint amt) external onlyOwner { _mint(to, amt); }"
+    agent = _make_agent(src)
+    report = asyncio.run(agent.scan("0xabc", "ethereum"))
+    assert "unprotected_mint" not in {f.name for f in report.findings}
 
 
 def test_blacklist_detected():

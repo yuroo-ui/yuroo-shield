@@ -1,5 +1,6 @@
 """End-to-end orchestrator test with all network calls mocked."""
 import asyncio
+from contextlib import ExitStack
 from unittest.mock import AsyncMock, patch
 
 from yuroo_shield.config import Settings
@@ -17,35 +18,68 @@ def _settings() -> Settings:
     )
 
 
-def test_orchestrator_runs_without_llm():
-    async def go():
-        with (
-            patch("yuroo_shield.etherscan.EtherscanClient.get_source_code", new=AsyncMock(
+def _patches(creation_ts: int = 1573672677):
+    """Common Etherscan + GoPlus mocks. Returns a list of patcher contexts."""
+    from yuroo_shield.agents.goplus_intel import GoPlusReport
+
+    return [
+        patch(
+            "yuroo_shield.etherscan.EtherscanClient.get_source_code",
+            new=AsyncMock(
                 return_value={
-                    "SourceCode": "// 0x000000000000000000000000000000000000dead\ncontract X { uint x; }",
+                    "SourceCode": (
+                        "// 0x000000000000000000000000000000000000dead\n"
+                        "contract X { uint x; }"
+                    ),
                     "ContractName": "X",
                     "CompilerVersion": "v0.8.20",
                     "Proxy": "0",
                 }
-            )),
-            patch("yuroo_shield.etherscan.EtherscanClient.get_recent_txs", new=AsyncMock(return_value=[])),
-            patch("yuroo_shield.etherscan.EtherscanClient.get_token_supply", new=AsyncMock(return_value="1000000")),
-            patch("yuroo_shield.etherscan.EtherscanClient.get_token_holders", new=AsyncMock(return_value=[])),
-            patch("yuroo_shield.agents.goplus_intel.GoPlusIntelAgent.scan", new=AsyncMock(
-                return_value=__import__(
-                    "yuroo_shield.agents.goplus_intel", fromlist=["GoPlusReport"]
-                ).GoPlusReport(available=False)
-            )),
-        ):
-            async with AgentOrchestrator(settings=_settings()) as orch:
-                report = await orch.scan_contract("0xabc", "ethereum")
-        return report
+            ),
+        ),
+        patch(
+            "yuroo_shield.etherscan.EtherscanClient.get_recent_txs",
+            new=AsyncMock(return_value=[]),
+        ),
+        patch(
+            "yuroo_shield.etherscan.EtherscanClient.get_token_supply",
+            new=AsyncMock(return_value="1000000"),
+        ),
+        patch(
+            "yuroo_shield.etherscan.EtherscanClient.get_token_holders",
+            new=AsyncMock(return_value=[]),
+        ),
+        patch(
+            "yuroo_shield.etherscan.EtherscanClient.get_contract_creation_timestamp",
+            new=AsyncMock(return_value=creation_ts),
+        ),
+        patch(
+            "yuroo_shield.agents.goplus_intel.GoPlusIntelAgent.scan",
+            new=AsyncMock(return_value=GoPlusReport(available=False)),
+        ),
+    ]
 
-    report = asyncio.run(go())
+
+async def _scan(address: str):
+    with ExitStack() as stack:
+        for p in _patches():
+            stack.enter_context(p)
+        async with AgentOrchestrator(settings=_settings()) as orch:
+            return await orch.scan_contract(address, "ethereum")
+
+
+def test_orchestrator_runs_without_llm():
+    report = asyncio.run(_scan("0xabc"))
     assert report.address == "0xabc"
     assert isinstance(report.risk_level, RiskLevel)
-    assert "scanner" in report.agent_outputs
-    assert "rugpull" in report.agent_outputs
-    assert "token" in report.agent_outputs
-    assert "threat" in report.agent_outputs
-    assert "goplus" in report.agent_outputs
+    for k in ("scanner", "rugpull", "token", "threat", "goplus"):
+        assert k in report.agent_outputs
+
+
+def test_orchestrator_dampens_canonical_token():
+    """Scanning canonical DAI should cap the score at LOW even if heuristics fire."""
+    report = asyncio.run(_scan("0x6B175474E89094C44Da98b954EedeAC495271d0F"))
+    assert report.canonical_name == "DAI"
+    assert report.risk_score <= 5
+    assert report.risk_level in (RiskLevel.SAFE, RiskLevel.LOW)
+    assert "Canonical" in report.recommendation
