@@ -88,5 +88,23 @@ def chains() -> None:
     console.print(table)
 
 
+@app.command()
+def serve(
+    host: str = typer.Option("0.0.0.0", help="Bind host"),
+    port: int = typer.Option(8000, help="Bind port"),
+    reload: bool = typer.Option(False, help="Enable auto-reload (dev mode)"),
+) -> None:
+    """Start the Yuroo Shield web UI + JSON API."""
+    import uvicorn
+
+    uvicorn.run(
+        "yuroo_shield.web:app",
+        host=host,
+        port=port,
+        reload=reload,
+        log_level="info",
+    )
+
+
 if __name__ == "__main__":
     app()

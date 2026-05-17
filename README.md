@@ -75,6 +75,30 @@ Single Etherscan v2 API key covers all of them:
 
 `ethereum` (1) · `bsc` (56) · `polygon` (137) · `arbitrum` (42161) · `optimism` (10) · `base` (8453)
 
+## Web UI
+
+Yuroo Shield ships with a built-in web UI + JSON API powered by FastAPI:
+
+```bash
+yuroo-shield serve --host 0.0.0.0 --port 8000
+# Open http://localhost:8000
+```
+
+The UI is a single-page app (Tailwind + vanilla JS, no build step) with:
+
+- Address scanner with chain selector
+- Quick-pick examples (DAI / USDT / USDC / SHIB)
+- Live verdict card with risk level color-coding
+- MiMo summary panel
+- Full findings list grouped by severity
+
+API endpoints:
+
+| Method | Path | Body | Returns |
+|---|---|---|---|
+| GET | `/api/health` | — | `{status, etherscan_configured, llm_configured, llm_model, chains}` |
+| POST | `/api/scan` | `{address, chain}` | Full `ContractReport` JSON |
+
 ## Quickstart
 
 ```bash

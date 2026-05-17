@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en" class="bg-[#0a0e17] text-slate-100">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Yuroo Shield — Smart Contract Security, Powered by MiMo</title>
+<meta name="description" content="Multi-agent smart contract security and rugpull detection. Powered by MiMo. Six agents, six chains, one verdict." />
+<meta property="og:title" content="Yuroo Shield" />
+<meta property="og:description" content="Multi-agent smart contract security scanner. Powered by MiMo." />
+<meta property="og:image" content="/assets/banner.png" />
+<meta property="og:type" content="website" />
+<meta name="twitter:card" content="summary_large_image" />
+<link rel="icon" href="/assets/banner.png" />
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          bg:        "#0a0e17",
+          surface:   "#141a2a",
+          surface2:  "#1d2438",
+          border:    "#2a3349",
+          accent:    "#ff6b35",
+          accent2:   "#00d4aa",
+          dim:       "#8c98af",
+        },
+        fontFamily: {
+          sans: ["Inter", "system-ui", "sans-serif"],
+          mono: ["JetBrains Mono", "ui-monospace", "monospace"],
+        },
+      },
+    },
+  };
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  body { font-family: "Inter", system-ui, sans-serif; }
+  .mono { font-family: "JetBrains Mono", ui-monospace, monospace; }
+  .gradient-bg {
+    background:
+      radial-gradient(circle at 20% 0%, rgba(255,107,53,0.15) 0, transparent 50%),
+      radial-gradient(circle at 80% 100%, rgba(0,212,170,0.1) 0, transparent 50%),
+      #0a0e17;
+  }
+  .glow-orange { box-shadow: 0 0 40px rgba(255,107,53,0.25); }
+  .pulse-dot {
+    animation: pulse 2s cubic-bezier(0.4,0,0.6,1) infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+  details > summary { list-style: none; cursor: pointer; }
+  details > summary::-webkit-details-marker { display: none; }
+</style>
+</head>
+<body class="gradient-bg min-h-screen">
+
+<!-- ========== NAV ========== -->
+<nav class="border-b border-border/50 backdrop-blur-sm sticky top-0 z-50 bg-bg/80">
+  <div class="max-w-6xl mx-auto px-5 py-4 flex items-center justify-between">
+    <a href="/" class="flex items-center gap-3">
+      <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-accent to-accent2 flex items-center justify-center font-bold text-bg">Y</div>
+      <span class="font-bold text-lg">Yuroo Shield</span>
+    </a>
+    <div class="flex items-center gap-4 text-sm">
+      <a href="https://github.com/yuroo-ui/yuroo-shield" class="text-dim hover:text-slate-100 transition" target="_blank" rel="noopener">GitHub</a>
+      <span class="hidden sm:inline-flex items-center gap-2 text-xs text-dim">
+        <span class="w-2 h-2 bg-accent2 rounded-full pulse-dot"></span>
+        Powered by MiMo
+      </span>
+    </div>
+  </div>
+</nav>
+
+<!-- ========== HERO + SCANNER ========== -->
+<section class="max-w-6xl mx-auto px-5 pt-12 pb-8 sm:pt-20">
+  <div class="text-center max-w-3xl mx-auto">
+    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent/10 border border-accent/30 text-accent text-xs font-semibold mb-6">
+      <span class="w-1.5 h-1.5 bg-accent rounded-full"></span>
+      Multi-agent · 6 chains · Powered by MiMo
+    </div>
+    <h1 class="text-4xl sm:text-6xl font-extrabold tracking-tight mb-5">
+      Stop interacting with<br/>
+      <span class="bg-gradient-to-r from-accent to-accent2 bg-clip-text text-transparent">scam contracts.</span>
+    </h1>
+    <p class="text-lg text-dim mb-10 leading-relaxed">
+      Six AI agents fan out across the chain, audit the source, and return one verdict — before you sign anything.
+    </p>
+
+    <!-- ========== SCANNER CARD ========== -->
+    <form id="scan-form" class="bg-surface border border-border rounded-2xl p-5 sm:p-6 text-left max-w-2xl mx-auto glow-orange">
+      <label class="text-xs uppercase tracking-wider text-dim font-semibold mb-2 block">
+        Contract address
+      </label>
+      <div class="flex flex-col sm:flex-row gap-3">
+        <input
+          id="address"
+          type="text"
+          placeholder="0x6B175474E89094C44Da98b954EedeAC495271d0F"
+          class="mono flex-1 bg-bg border border-border rounded-lg px-4 py-3 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 transition"
+          autocomplete="off"
+          spellcheck="false"
+          required
+        />
+        <select
+          id="chain"
+          class="bg-bg border border-border rounded-lg px-4 py-3 text-sm focus:border-accent focus:outline-none transition"
+        >
+          <option value="ethereum">Ethereum</option>
+          <option value="bsc">BSC</option>
+          <option value="polygon">Polygon</option>
+          <option value="arbitrum">Arbitrum</option>
+          <option value="optimism">Optimism</option>
+          <option value="base">Base</option>
+        </select>
+        <button
+          type="submit"
+          id="scan-btn"
+          class="bg-accent hover:bg-accent/90 text-bg font-bold px-6 py-3 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+        >
+          Scan
+        </button>
+      </div>
+
+      <!-- Quick examples -->
+      <div class="mt-4 flex flex-wrap gap-2 text-xs">
+        <span class="text-dim">Try:</span>
+        <button type="button" data-addr="0x6B175474E89094C44Da98b954EedeAC495271d0F" class="example text-accent hover:underline">DAI</button>
+        <button type="button" data-addr="0xdAC17F958D2ee523a2206206994597C13D831ec7" class="example text-accent hover:underline">USDT</button>
+        <button type="button" data-addr="0xA0b86991c6218b36c1D19D4a2e9Eb0cE3606eB48" class="example text-accent hover:underline">USDC</button>
+        <button type="button" data-addr="0x95aD61b0a150d79219dCF64E1E6Cc01f0B64C4cE" class="example text-accent hover:underline">SHIB</button>
+      </div>
+    </form>
+  </div>
+</section>
+
+<!-- ========== RESULT ========== -->
+<section id="result" class="max-w-4xl mx-auto px-5 py-6 hidden">
+  <!-- Loading state -->
+  <div id="loading" class="bg-surface border border-border rounded-2xl p-8 text-center hidden">
+    <div class="inline-flex items-center gap-3">
+      <div class="w-3 h-3 bg-accent rounded-full pulse-dot"></div>
+      <div class="w-3 h-3 bg-accent rounded-full pulse-dot" style="animation-delay:0.2s"></div>
+      <div class="w-3 h-3 bg-accent rounded-full pulse-dot" style="animation-delay:0.4s"></div>
+    </div>
+    <p class="mt-4 text-dim text-sm" id="loading-msg">Dispatching 6 agents…</p>
+  </div>
+
+  <!-- Error state -->
+  <div id="error" class="bg-red-950/40 border border-red-800/60 rounded-2xl p-5 hidden">
+    <p class="text-red-300 font-semibold mb-1">Scan failed</p>
+    <p id="error-msg" class="text-sm text-red-400/80"></p>
+  </div>
+
+  <!-- Verdict card -->
+  <div id="verdict" class="hidden">
+    <div id="verdict-card" class="bg-surface border-2 rounded-2xl p-6 mb-4">
+      <div class="flex items-start justify-between flex-wrap gap-4 mb-4">
+        <div class="flex-1 min-w-0">
+          <p id="verdict-addr" class="mono text-xs text-dim mb-2 truncate"></p>
+          <p class="text-xs uppercase tracking-wider text-dim mb-1">Risk Level</p>
+          <p id="verdict-level" class="text-4xl sm:text-5xl font-extrabold"></p>
+        </div>
+        <div class="text-right">
+          <p class="text-xs uppercase tracking-wider text-dim mb-1">Score</p>
+          <p id="verdict-score" class="text-4xl sm:text-5xl font-extrabold mono"></p>
+          <p class="text-xs text-dim">/ 100</p>
+        </div>
+      </div>
+      <div id="verdict-canonical" class="hidden mb-3">
+        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-accent2/10 border border-accent2/30 text-accent2 text-xs font-semibold">
+          <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+          Canonical: <span id="verdict-canonical-name"></span>
+        </span>
+      </div>
+      <p id="verdict-rec" class="text-sm leading-relaxed text-slate-300"></p>
+    </div>
+
+    <!-- AI Summary -->
+    <div id="summary-box" class="bg-surface2 border border-border rounded-2xl p-5 mb-4 hidden">
+      <div class="flex items-center gap-2 mb-2">
+        <svg class="w-4 h-4 text-accent" fill="currentColor" viewBox="0 0 20 20"><path d="M11 17a1 1 0 001.447.894l4-2A1 1 0 0017 15V9.236a1 1 0 00-1.447-.894l-4 2a1 1 0 00-.553.894V17zM15.211 6.276a1 1 0 000-1.788l-4.764-2.382a1 1 0 00-.894 0L4.789 4.488a1 1 0 000 1.788l4.764 2.382a1 1 0 00.894 0l4.764-2.382zM4.447 8.342A1 1 0 003 9.236V15a1 1 0 00.553.894l4 2A1 1 0 009 17v-5.764a1 1 0 00-.553-.894l-4-2z"/></svg>
+        <p class="text-xs uppercase tracking-wider text-accent font-semibold">MiMo Summary</p>
+      </div>
+      <p id="summary-text" class="text-sm leading-relaxed text-slate-300"></p>
+    </div>
+
+    <!-- Findings -->
+    <div id="findings-box" class="bg-surface border border-border rounded-2xl p-5">
+      <p class="text-xs uppercase tracking-wider text-dim font-semibold mb-4">Findings</p>
+      <div id="findings-list" class="space-y-2"></div>
+      <p id="findings-empty" class="text-sm text-dim hidden">No findings.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ========== HOW IT WORKS ========== -->
+<section class="max-w-6xl mx-auto px-5 py-16 sm:py-24">
+  <h2 class="text-2xl sm:text-3xl font-bold mb-2 text-center">Six agents. One verdict.</h2>
+  <p class="text-center text-dim mb-12 max-w-2xl mx-auto">
+    Reasoning-heavy work routes to MiMo-V2.5-Pro. Analysis tasks run on MiMo-V2.5. Deterministic checks need no LLM at all.
+  </p>
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+    <div class="bg-surface border border-border rounded-xl p-5">
+      <div class="flex items-center gap-2 mb-2"><span class="text-accent text-xl">⚙</span><h3 class="font-bold">Contract Scanner</h3></div>
+      <p class="text-sm text-dim mb-3">Verified source, hidden mints, blacklist & tax functions, ownership status.</p>
+      <span class="text-xs mono text-accent">mimo-v2.5-pro</span>
+    </div>
+    <div class="bg-surface border border-border rounded-xl p-5">
+      <div class="flex items-center gap-2 mb-2"><span class="text-accent text-xl">⚠</span><h3 class="font-bold">Rugpull Monitor</h3></div>
+      <p class="text-sm text-dim mb-3">Real contract age, recent failure rate, honeypot indicators.</p>
+      <span class="text-xs mono text-accent">mimo-v2.5-pro</span>
+    </div>
+    <div class="bg-surface border border-border rounded-xl p-5">
+      <div class="flex items-center gap-2 mb-2"><span class="text-accent text-xl">◊</span><h3 class="font-bold">Token Analyzer</h3></div>
+      <p class="text-sm text-dim mb-3">Total supply, top-10 holder concentration, distribution health.</p>
+      <span class="text-xs mono text-accent2">mimo-v2.5</span>
+    </div>
+    <div class="bg-surface border border-border rounded-xl p-5">
+      <div class="flex items-center gap-2 mb-2"><span class="text-accent text-xl">◎</span><h3 class="font-bold">Threat Intel</h3></div>
+      <p class="text-sm text-dim mb-3">Curated blocklist + sanctioned-address feeds. Extend with your own.</p>
+      <span class="text-xs mono text-accent2">mimo-v2.5</span>
+    </div>
+    <div class="bg-surface border border-border rounded-xl p-5">
+      <div class="flex items-center gap-2 mb-2"><span class="text-accent text-xl">◈</span><h3 class="font-bold">GoPlus Intel</h3></div>
+      <p class="text-sm text-dim mb-3">Honeypot, hidden owner, mintability, taxes — public feed, no key.</p>
+      <span class="text-xs mono text-dim">deterministic</span>
+    </div>
+    <div class="bg-surface border border-border rounded-xl p-5">
+      <div class="flex items-center gap-2 mb-2"><span class="text-accent text-xl">✎</span><h3 class="font-bold">Report Generator</h3></div>
+      <p class="text-sm text-dim mb-3">Severity aggregation + LLM exec summary, constrained to evidence only.</p>
+      <span class="text-xs mono text-accent2">mimo-v2.5</span>
+    </div>
+  </div>
+</section>
+
+<!-- ========== SUPPORTED CHAINS ========== -->
+<section class="max-w-6xl mx-auto px-5 py-12 border-t border-border">
+  <h2 class="text-2xl font-bold mb-6 text-center">One Etherscan key, six chains.</h2>
+  <div class="flex flex-wrap justify-center gap-3">
+    <span class="px-4 py-2 rounded-lg bg-surface border border-border text-sm">Ethereum</span>
+    <span class="px-4 py-2 rounded-lg bg-surface border border-border text-sm">BSC</span>
+    <span class="px-4 py-2 rounded-lg bg-surface border border-border text-sm">Polygon</span>
+    <span class="px-4 py-2 rounded-lg bg-surface border border-border text-sm">Arbitrum</span>
+    <span class="px-4 py-2 rounded-lg bg-surface border border-border text-sm">Optimism</span>
+    <span class="px-4 py-2 rounded-lg bg-surface border border-border text-sm">Base</span>
+  </div>
+</section>
+
+<!-- ========== FOOTER ========== -->
+<footer class="border-t border-border mt-16">
+  <div class="max-w-6xl mx-auto px-5 py-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm">
+    <p class="text-dim">© 2026 Yuroo. MIT licensed.</p>
+    <div class="flex items-center gap-6">
+      <a href="https://github.com/yuroo-ui/yuroo-shield" target="_blank" rel="noopener" class="text-dim hover:text-slate-100 transition">GitHub</a>
+      <a href="https://platform.xiaomimimo.com" target="_blank" rel="noopener" class="text-dim hover:text-slate-100 transition">MiMo</a>
+      <a href="/api/health" class="text-dim hover:text-slate-100 transition">API</a>
+    </div>
+  </div>
+</footer>
+
+<!-- ========== JS ========== -->
+<script>
+  const LEVEL_STYLES = {
+    safe:     { color: "text-accent2", border: "border-accent2/40", glow: "shadow-[0_0_40px_rgba(0,212,170,0.2)]" },
+    low:      { color: "text-accent2", border: "border-accent2/40", glow: "shadow-[0_0_40px_rgba(0,212,170,0.2)]" },
+    medium:   { color: "text-yellow-400", border: "border-yellow-500/40", glow: "shadow-[0_0_40px_rgba(234,179,8,0.2)]" },
+    high:     { color: "text-orange-400", border: "border-orange-500/40", glow: "shadow-[0_0_40px_rgba(249,115,22,0.25)]" },
+    critical: { color: "text-red-500", border: "border-red-600/50", glow: "shadow-[0_0_40px_rgba(239,68,68,0.3)]" },
+  };
+
+  const SEVERITY_COLOR = {
+    info:     "bg-slate-700 text-slate-300",
+    low:      "bg-emerald-900/40 text-emerald-300 border border-emerald-700/40",
+    medium:   "bg-yellow-900/40 text-yellow-300 border border-yellow-700/40",
+    high:     "bg-orange-900/40 text-orange-300 border border-orange-700/40",
+    critical: "bg-red-900/50 text-red-300 border border-red-700/50",
+  };
+
+  const $ = (id) => document.getElementById(id);
+
+  document.querySelectorAll(".example").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      $("address").value = btn.dataset.addr;
+      $("chain").value = "ethereum";
+    });
+  });
+
+  $("scan-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const address = $("address").value.trim();
+    const chain = $("chain").value;
+    if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
+      showError("Invalid address. Must be 0x + 40 hex chars.");
+      return;
+    }
+
+    showLoading();
+    rotateLoadingMessages();
+
+    try {
+      const r = await fetch("/api/scan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ address, chain }),
+      });
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({}));
+        showError(err.detail || `Server returned ${r.status}`);
+        return;
+      }
+      const data = await r.json();
+      showVerdict(data);
+    } catch (err) {
+      showError(err.message || "Network error");
+    }
+  });
+
+  function showLoading() {
+    $("result").classList.remove("hidden");
+    $("loading").classList.remove("hidden");
+    $("error").classList.add("hidden");
+    $("verdict").classList.add("hidden");
+    $("scan-btn").disabled = true;
+    $("scan-btn").textContent = "Scanning…";
+    $("result").scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function rotateLoadingMessages() {
+    const msgs = [
+      "Dispatching 6 agents…",
+      "Fetching contract source from Etherscan…",
+      "Querying GoPlus token security…",
+      "MiMo reasoning over Solidity patterns…",
+      "Aggregating signals…",
+    ];
+    let i = 0;
+    const el = $("loading-msg");
+    const timer = setInterval(() => {
+      i = (i + 1) % msgs.length;
+      if ($("loading").classList.contains("hidden")) {
+        clearInterval(timer);
+        return;
+      }
+      el.textContent = msgs[i];
+    }, 1500);
+  }
+
+  function showError(msg) {
+    $("loading").classList.add("hidden");
+    $("verdict").classList.add("hidden");
+    $("error").classList.remove("hidden");
+    $("error-msg").textContent = msg;
+    $("scan-btn").disabled = false;
+    $("scan-btn").textContent = "Scan";
+  }
+
+  function showVerdict(data) {
+    $("loading").classList.add("hidden");
+    $("error").classList.add("hidden");
+    $("verdict").classList.remove("hidden");
+    $("scan-btn").disabled = false;
+    $("scan-btn").textContent = "Scan";
+
+    const level = (data.risk_level || "safe").toLowerCase();
+    const styles = LEVEL_STYLES[level] || LEVEL_STYLES.safe;
+
+    const card = $("verdict-card");
+    card.className = `bg-surface border-2 rounded-2xl p-6 mb-4 ${styles.border} ${styles.glow}`;
+
+    $("verdict-addr").textContent = `${data.address} · ${data.chain}`;
+    $("verdict-level").textContent = level.toUpperCase();
+    $("verdict-level").className = `text-4xl sm:text-5xl font-extrabold ${styles.color}`;
+    $("verdict-score").textContent = data.risk_score;
+    $("verdict-score").className = `text-4xl sm:text-5xl font-extrabold mono ${styles.color}`;
+    $("verdict-rec").textContent = data.recommendation || "";
+
+    if (data.canonical_name) {
+      $("verdict-canonical").classList.remove("hidden");
+      $("verdict-canonical-name").textContent = data.canonical_name;
+    } else {
+      $("verdict-canonical").classList.add("hidden");
+    }
+
+    if (data.summary && data.summary.trim()) {
+      $("summary-box").classList.remove("hidden");
+      $("summary-text").textContent = data.summary;
+    } else {
+      $("summary-box").classList.add("hidden");
+    }
+
+    const findings = collectFindings(data.agent_outputs || {});
+    const list = $("findings-list");
+    list.innerHTML = "";
+    if (findings.length === 0) {
+      $("findings-empty").classList.remove("hidden");
+    } else {
+      $("findings-empty").classList.add("hidden");
+      findings.forEach((f) => {
+        const row = document.createElement("div");
+        row.className = "flex items-start gap-3 p-3 rounded-lg bg-bg/40 border border-border/50";
+        row.innerHTML = `
+          <span class="text-xs px-2 py-0.5 rounded font-semibold uppercase ${SEVERITY_COLOR[f.severity] || SEVERITY_COLOR.info}">${f.severity}</span>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium">${escapeHtml(f.name)}</p>
+            <p class="text-xs text-dim mt-0.5">${escapeHtml(f.detail || "")}</p>
+            <p class="text-[10px] mono text-dim/60 mt-1">via ${escapeHtml(f.agent)}</p>
+          </div>
+        `;
+        list.appendChild(row);
+      });
+    }
+  }
+
+  function collectFindings(agentOutputs) {
+    const out = [];
+    for (const [agent, payload] of Object.entries(agentOutputs)) {
+      const items = (payload.findings || []).concat(payload.signals || []);
+      for (const it of items) {
+        out.push({
+          agent,
+          name: it.name || "",
+          severity: it.severity || "info",
+          detail: it.detail || "",
+        });
+      }
+    }
+    const order = { critical: 0, high: 1, medium: 2, low: 3, info: 4 };
+    out.sort((a, b) => (order[a.severity] ?? 5) - (order[b.severity] ?? 5));
+    return out;
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, (c) => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+    }[c]));
+  }
+</script>
+</body>
+</html>

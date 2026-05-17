@@ -1,0 +1,37 @@
+feat(web): FastAPI app + single-page UI
+
+Adds a built-in web UI + JSON API. Run with:
+  yuroo-shield serve --host 0.0.0.0 --port 8000
+
+Components:
+
+- src/yuroo_shield/web.py: FastAPI app with two endpoints.
+  - GET /api/health: returns config status + supported chains.
+  - POST /api/scan: wraps AgentOrchestrator, accepts {address, chain},
+    returns full ContractReport JSON. Validates 0x-prefixed 40-hex
+    addresses and known chain IDs.
+  - CORS open for browser fetches; static assets mounted under /assets.
+
+- web/static/index.html: single-page UI, mobile-first.
+  - Tailwind via CDN, JetBrains Mono for addresses.
+  - Dark theme matching banner (#0a0e17 surface, accent #ff6b35,
+    accent2 #00d4aa).
+  - Live verdict card with risk-level color coding (safe/low green,
+    medium yellow, high orange, critical red), score, canonical-token
+    badge, MiMo summary panel, severity-sorted findings list.
+  - Quick-pick examples: DAI, USDT, USDC, SHIB.
+  - Loading state with rotating status messages.
+  - Error state for invalid addresses or backend failures.
+  - OG tags + favicon point to assets/banner.png.
+
+- src/yuroo_shield/cli.py: adds `serve` subcommand that spawns uvicorn.
+
+- pyproject.toml: adds fastapi>=0.110 and uvicorn[standard]>=0.27 to
+  base dependencies.
+
+- README: new Web UI section explaining the serve command, the UI,
+  and the API endpoints.
+
+Live-verified locally: GET /api/health returns ok with mimo-v2.5-pro
+configured, POST /api/scan on DAI returns LOW(5) canonical:DAI as
+expected. 28/28 tests still green.
