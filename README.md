@@ -242,8 +242,6 @@ All tests are network-free; HTTP, Etherscan, and MiMo calls are mocked.
 - [Etherscan v2](https://docs.etherscan.io/etherscan-v2) — unified multichain explorer API.
 - [GoPlus Security](https://gopluslabs.io) — free public token-security feed.
 
-Built for the MiMo developer ecosystem. Submitted for the [MiMo 100T plan](https://100t.xiaomimimo.com/).
-
 ## License
 
 MIT
