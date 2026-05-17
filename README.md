@@ -1,5 +1,7 @@
 # Yuroo Shield
 
+![Yuroo Shield banner](assets/banner.png)
+
 > **Powered by MiMo** — built on top of Xiaomi's [MiMo](https://platform.xiaomimimo.com) reasoning models for deep smart contract security analysis.
 
 Multi-agent smart contract security and rugpull detection. LLM-agnostic at the API layer, but optimized end-to-end for **MiMo-V2.5-Pro** long-chain reasoning. Runs useful even with zero LLM credits via deterministic on-chain heuristics + GoPlus public feed.
